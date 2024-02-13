@@ -4,6 +4,8 @@ import 'regenerator-runtime/runtime';
 import icons from 'url:../img/icons.svg';
 import searchView from './views/search_view';
 import resultsView from './views/result';
+import bookMarksView from './views/bookmarks';
+
 import paginationView from './views/pagination';
 
 import recipeView from './views/recipe';
@@ -18,8 +20,10 @@ const showRecipe = async function () {
     resultsView.update(model.getSearchResultsPage());
     await model.loadRecipe(id);
     recipeView.render(model.state.recipe);
+    bookMarksView.update(model.state.bookmarks);
   } catch (e) {
     recipeView.renderError();
+    console.log(e);
   }
 };
 const controlSearchResults = async function () {
@@ -46,7 +50,21 @@ const controlServings = function (newServings) {
 
   recipeView.update(model.state.recipe);
 };
+const controlAddBookmark = function () {
+  if (!model.state.recipe.bookmarked) {
+    model.addBookmark(model.state.recipe);
+  } else {
+    model.deleteBookmark(model.state.recipe.id);
+  }
+  recipeView.update(model.state.recipe);
+  bookMarksView.render(model.state.bookmarks);
+};
+const controlBookmarks = function () {
+  bookMarksView.render(model.state.bookmarks);
+};
 const init = function () {
+  bookMarksView.addHandlerRender(controlBookmarks);
+  recipeView.addHandlerAddBookmark(controlAddBookmark);
   recipeView.addHandlerRender(showRecipe);
   recipeView.addHandlerUpdateServings(controlServings);
   searchView.addHandlerSearch(controlSearchResults);
