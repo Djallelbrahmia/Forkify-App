@@ -1,41 +1,47 @@
 import * as model from './model';
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
-import recipeView from './views/recipe';
-const recipeContainer = document.querySelector('.recipe');
+import icons from 'url:../img/icons.svg';
+import searchView from './views/search_view';
+import resultsView from './views/result';
+import paginationView from './views/pagination';
 
-const timeout = function (s) {
-  return new Promise(function (_, reject) {
-    setTimeout(function () {
-      reject(new Error(`Request took too long! Timeout after ${s} second`));
-    }, s * 1000);
-  });
-};
+import recipeView from './views/recipe';
 
 // https://forkify-api.herokuapp.com/v2
 
-const renderSpinner = function (parentEl) {
-  const markup = ` <div class="spinner">
-  <svg>
-    <use href="${icons}.svg#icon-loader"></use>
-  </svg>
-</div> `;
-  parentEl.innerHTML = '';
-  parentEl.insertAdjacentHTML('afterBegin', markup);
-};
 const showRecipe = async function () {
-  console.log(icons);
-
   try {
     const id = window.location.hash.slice(1);
     if (!id) return;
-    renderSpinner(recipeContainer);
+    recipeView.renderSpinner();
     await model.loadRecipe(id);
-    recipeView.render(model.state.recipe); //TODO
+    recipeView.render(model.state.recipe);
   } catch (e) {
-    alert(e);
+    recipeView.renderError();
   }
 };
-['hashchange', 'load'].forEach(e => window.addEventListener(e, showRecipe));
+const controlSearchResults = async function () {
+  try {
+    resultsView.renderSpinner();
+    const query = searchView.getQuery();
+    if (!query) return;
+    await model.loadSearchResults(query);
+    resultsView.render(model.getSearchResultsPage());
+    paginationView.render(model.state.search);
+  } catch (err) {
+    resultsView.renderError();
+  }
+};
+const controlPagination = function (goToPage) {
+  resultsView.render(model.getSearchResultsPage(goToPage));
+  paginationView.render(model.state.search);
+};
+const init = function () {
+  recipeView.addHandlerRender(showRecipe);
+  searchView.addHandlerSearch(controlSearchResults);
+  paginationView.addHandlerClick(controlPagination);
+};
 
+init();
 ///////////////////////////////////////
