@@ -6,7 +6,6 @@ export default class View {
   _errorMessage = 'We could not find that recipe ,please try another one';
   _successMessage = `Start by searching for a recipe or an ingredient. Have fun!`;
   render(data) {
-    console.log(data);
     if (!data || (Array.isArray(data) && data.length === 0))
       return this.renderError();
     this._data = data;
@@ -50,5 +49,29 @@ export default class View {
   </div> `;
     this._clear();
     this._parentElement.insertAdjacentHTML('afterBegin', markup);
+  }
+  update(data) {
+    // if (!data || (Array.isArray(data) && data.length === 0))
+    //   return this.renderError();
+    this._data = data;
+    const newMarkup = this._generateMarkup();
+    const newDOM = document.createRange().createContextualFragment(newMarkup);
+    const newElements = Array.from(newDOM.querySelectorAll('*'));
+    const curElements = Array.from(this._parentElement.querySelectorAll('*'));
+    newElements.forEach((newEl, i) => {
+      const curEl = curElements[i];
+      console.log(curEl.textContent, curEl);
+      if (
+        !newEl.isEqualNode(curEl) &&
+        newEl.firstChild?.nodeValue.trim() !== ''
+      ) {
+        curEl.textContent = newEl.textContent;
+      }
+      if (!newEl.isEqualNode(curEl)) {
+        Array.from(newEl.attributes).forEach(attr => {
+          curEl.setAttribute(attr.name, attr.value);
+        });
+      }
+    });
   }
 }

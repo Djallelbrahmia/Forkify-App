@@ -599,6 +599,7 @@ const showRecipe = async function() {
         const id = window.location.hash.slice(1);
         if (!id) return;
         (0, _recipeDefault.default).renderSpinner();
+        (0, _resultDefault.default).update(_model.getSearchResultsPage());
         await _model.loadRecipe(id);
         (0, _recipeDefault.default).render(_model.state.recipe);
     } catch (e) {
@@ -621,8 +622,15 @@ const controlPagination = function(goToPage) {
     (0, _resultDefault.default).render(_model.getSearchResultsPage(goToPage));
     (0, _paginationDefault.default).render(_model.state.search);
 };
+const controlServings = function(newServings) {
+    //Update the recipe servings(in state)
+    _model.updateServing(newServings);
+    //update the recipe view
+    (0, _recipeDefault.default).update(_model.state.recipe);
+};
 const init = function() {
     (0, _recipeDefault.default).addHandlerRender(showRecipe);
+    (0, _recipeDefault.default).addHandlerUpdateServings(controlServings);
     (0, _searchViewDefault.default).addHandlerSearch(controlSearchResults);
     (0, _paginationDefault.default).addHandlerClick(controlPagination);
 };
@@ -2482,6 +2490,7 @@ parcelHelpers.export(exports, "state", ()=>state);
 parcelHelpers.export(exports, "loadRecipe", ()=>loadRecipe);
 parcelHelpers.export(exports, "loadSearchResults", ()=>loadSearchResults);
 parcelHelpers.export(exports, "getSearchResultsPage", ()=>getSearchResultsPage);
+parcelHelpers.export(exports, "updateServing", ()=>updateServing);
 var _config = require("./config");
 var _helpers = require("./helpers");
 const state = {
@@ -2519,7 +2528,8 @@ const loadSearchResults = async function(query) {
             return {
                 id: rec.id,
                 title: rec.title,
-                image: rec.image_url
+                image: rec.image_url,
+                publisher: rec.publisher
             };
         });
     } catch (err) {
@@ -2532,6 +2542,12 @@ const getSearchResultsPage = function(page = state.search.page) {
     const start = (page - 1) * state.search.resultsPerPage;
     const end = page * state.search.resultsPerPage;
     return state.search.results.slice(start, end);
+};
+const updateServing = function(newServings) {
+    state.recipe.ingredients.forEach((ing)=>{
+        ing.quantity = ing.quantity * newServings / state.recipe.servings;
+    });
+    state.recipe.servings = newServings;
 };
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3","./config":"k5Hzs","./helpers":"hGI1E"}],"k5Hzs":[function(require,module,exports) {
@@ -2628,12 +2644,12 @@ class RecipeView extends (0, _viewJsDefault.default) {
           <span class="recipe__info-text">servings</span>
 
           <div class="recipe__info-buttons">
-            <button class="btn--tiny btn--update-servings" data-update-to="${this._data.servings - 1}">
+            <button data-update-to="${this._data.servings - 1}" class="btn--tiny btn--update-servings" data-update-to="${this._data.servings - 1}">
               <svg>
                 <use href="${0, _iconsSvgDefault.default}#icon-minus-circle"></use>
               </svg>
             </button>
-            <button class="btn--tiny btn--update-servings" data-update-to="${this._data.servings + 1}">
+            <button data-update-to="${this._data.servings + 1}" class="btn--tiny btn--update-servings" data-update-to="${this._data.servings + 1}">
               <svg>
                 <use href="${0, _iconsSvgDefault.default}#icon-plus-circle"></use>
               </svg>
@@ -2692,6 +2708,14 @@ class RecipeView extends (0, _viewJsDefault.default) {
       </div>
     </li>
   `;
+    }
+    addHandlerUpdateServings(handler) {
+        this._parentElement.addEventListener("click", function(e) {
+            const btn = e.target.closest(".btn--update-servings");
+            if (!btn) return;
+            const updateTo = +btn.dataset.updateTo;
+            if (updateTo > 0) handler(updateTo);
+        });
     }
 }
 exports.default = new RecipeView();
@@ -2998,7 +3022,6 @@ class View {
     _errorMessage = "We could not find that recipe ,please try another one";
     _successMessage = `Start by searching for a recipe or an ingredient. Have fun!`;
     render(data) {
-        console.log(data);
         if (!data || Array.isArray(data) && data.length === 0) return this.renderError();
         this._data = data;
         const markup = this._generateMarkup();
@@ -3040,6 +3063,23 @@ class View {
   </div> `;
         this._clear();
         this._parentElement.insertAdjacentHTML("afterBegin", markup);
+    }
+    update(data) {
+        // if (!data || (Array.isArray(data) && data.length === 0))
+        //   return this.renderError();
+        this._data = data;
+        const newMarkup = this._generateMarkup();
+        const newDOM = document.createRange().createContextualFragment(newMarkup);
+        const newElements = Array.from(newDOM.querySelectorAll("*"));
+        const curElements = Array.from(this._parentElement.querySelectorAll("*"));
+        newElements.forEach((newEl, i)=>{
+            const curEl = curElements[i];
+            console.log(curEl.textContent, curEl);
+            if (!newEl.isEqualNode(curEl) && newEl.firstChild?.nodeValue.trim() !== "") curEl.textContent = newEl.textContent;
+            if (!newEl.isEqualNode(curEl)) Array.from(newEl.attributes).forEach((attr)=>{
+                curEl.setAttribute(attr.name, attr.value);
+            });
+        });
     }
 }
 exports.default = View;
@@ -3083,8 +3123,9 @@ class ResultsView extends (0, _viewDefault.default) {
         return this._data.map(this._generateMarkupPreview).join("");
     }
     _generateMarkupPreview(result) {
+        const id = window.location.hash.slice(1);
         return ` <li class="preview">
-    <a class="preview__link" href="#${result.id}">
+    <a class="preview__link ${result.id === id ? "preview__link--active" : ""}" href="#${result.id}">
       <figure class="preview__fig">
         <img src="${result.image}" alt="Test" />
       </figure>
